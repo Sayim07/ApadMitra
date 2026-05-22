@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.env
+*firebase-adminsdk*.json
+firebase-service-account.json
+firebase-service-account*.json
+serviceAccountKey.json
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/

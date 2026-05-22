@@ -1,0 +1,28 @@
+{
+  "name": "aapda-mitra-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.11.0",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "leaflet.heat": "^0.2.0",
+    "recharts": "^2.5.0",
+    "firebase": "^9.22.0",
+    "axios": "^1.4.0",
+    "zustand": "^4.3.8",
+    "tailwindcss": "^3.4.0"
+  }
+  ,
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite-plugin-pwa": "^0.16.4"
+  }
+}
