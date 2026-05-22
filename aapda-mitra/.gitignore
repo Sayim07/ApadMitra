@@ -6,6 +6,9 @@ __pycache__/
 firebase-service-account.json
 firebase-service-account*.json
 serviceAccountKey.json
+.pytest_cache/
+.venv/
+.venv-*/
 
 # Node
 node_modules/

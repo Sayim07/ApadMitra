@@ -36,20 +36,24 @@ export default function DisasterMap({ incidents = [] }){
   
   return (
     <div>
-      <div style={{marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center'}}>
-        <label>
-          <input 
-            type="checkbox" 
-            checked={showHeatmap} 
-            onChange={(e) => setShowHeatmap(e.target.checked)} 
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+        <label className="badge" style={{ cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={showHeatmap}
+            onChange={(e) => setShowHeatmap(e.target.checked)}
+            style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
           />
-          {' '}Show Heatmap
+          Show heatmap
         </label>
-        <span style={{fontSize: '0.9em', color: '#666'}}>
-          {incidents.length} incidents total
-        </span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="badge badge-red"><span className="badge-dot" />RED</span>
+          <span className="badge badge-yellow"><span className="badge-dot" />YELLOW</span>
+          <span className="badge badge-green"><span className="badge-dot" />GREEN</span>
+          <span className="muted-2" style={{ fontSize: 12 }}>{incidents.length} incidents</span>
+        </div>
       </div>
-      <div style={{height: '400px', width: '100%'}}>
+      <div style={{ height: 420, width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.14)' }}>
         <MapContainer center={center} zoom={5} style={{height: '100%', width: '100%'}}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {showHeatmap && <HeatmapLayer incidents={incidents} />}

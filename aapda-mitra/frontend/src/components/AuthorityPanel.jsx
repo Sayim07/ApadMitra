@@ -8,6 +8,7 @@ export default function AuthorityPanel({ onClose }){
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [incidentId, setIncidentId] = useState('')
   const [confirm, setConfirm] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(()=>{
     const load = async ()=>{
@@ -17,6 +18,7 @@ export default function AuthorityPanel({ onClose }){
         const res = await fetch(`/teams`, { headers: { Authorization: `Bearer ${token}` } })
         const data = await res.json()
         setTeams(data.results || [])
+        setError(null)
       }catch(e){ console.error(e) }
     }
     load()
@@ -31,52 +33,95 @@ export default function AuthorityPanel({ onClose }){
       if (res.ok) {
         alert('Assigned')
         setConfirm(false)
+        setSelectedTeam(null)
+        setIncidentId('')
+        setError(null)
       } else {
-        alert('Failed')
+        setError('Assignment failed. Please verify the incident ID and try again.')
       }
     }catch(e){ console.error(e); alert('Error') }
     setAssigning(false)
   }
 
   return (
-    <div style={{position:'fixed', right:20, top:80, width:360, background:'#fff', border:'1px solid #ccc', padding:12, zIndex:2000}}>
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-        <h4>Authority Panel</h4>
-        <button onClick={onClose}>Close</button>
-      </div>
-      <div>
-        <p><strong>{profile ? (profile.name || profile.user_id) : 'Authority'}</strong></p>
-        <div style={{marginBottom:8}}>
-          <label>Incident ID</label>
-          <input value={incidentId} onChange={(e)=>setIncidentId(e.target.value)} style={{width:'100%'}} />
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="card modal">
+        <div className="card-header">
+          <div style={{ display: 'grid', gap: 4 }}>
+            <h3 style={{ fontSize: 16 }}>Authority Panel</h3>
+            <span className="muted-2" style={{ fontSize: 12 }}>
+              {profile ? (profile.name || profile.user_id) : 'Authority'}
+            </span>
+          </div>
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
         </div>
-        <h5>Available Teams</h5>
-        {teams.length === 0 && <p>No teams</p>}
-        <ul style={{maxHeight:220, overflow:'auto'}}>
-          {teams.map(t=> (
-            <li key={t.team_id} style={{marginBottom:6}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <div>
-                  <div style={{fontWeight:600}}>{t.name}</div>
-                  <div style={{fontSize:12, color:'#666'}}>{t.team_id} — {t.district || 'unknown'}</div>
-                </div>
-                <div>
-                  <button onClick={()=>{setSelectedTeam(t); setConfirm(true)}} disabled={assigning}>Assign</button>
+
+        <div className="card-body" style={{ display: 'grid', gap: 12 }}>
+          <div className="field">
+            <label className="label" htmlFor="incidentId">Incident ID</label>
+            <input id="incidentId" className="input" value={incidentId} onChange={(e)=>setIncidentId(e.target.value)} placeholder="Paste incident id" />
+          </div>
+
+          {error && (
+            <div className="badge badge-red" role="alert" style={{ justifyContent: 'center' }}>
+              <span className="badge-dot" />
+              {error}
+            </div>
+          )}
+
+          <div className="divider" />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+            <h4 style={{ fontSize: 14, margin: 0 }}>Available Teams</h4>
+            <span className="muted-2" style={{ fontSize: 12 }}>{teams.length} teams</span>
+          </div>
+
+          {teams.length === 0 && (
+            <div className="badge" style={{ justifyContent: 'center' }}>
+              <span className="badge-dot" />
+              No teams available
+            </div>
+          )}
+
+          <div style={{ maxHeight: 340, overflow: 'auto', display: 'grid', gap: 10 }}>
+            {teams.map(t => (
+              <div key={t.team_id} className="card" style={{ boxShadow: 'none' }}>
+                <div className="card-body" style={{ padding: 12, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gap: 2 }}>
+                    <div style={{ fontWeight: 800, color: 'var(--text)' }}>{t.name || 'Team'}</div>
+                    <div className="muted-2" style={{ fontSize: 12 }}>{t.team_id} · {t.district || 'unknown district'}</div>
+                  </div>
+                  <button
+                    className="btn"
+                    onClick={() => { setSelectedTeam(t); setConfirm(true); setError(null) }}
+                    disabled={assigning}
+                  >
+                    Assign
+                  </button>
                 </div>
               </div>
-            </li>
-          ))}
-        </ul>
-
-        {confirm && selectedTeam && (
-          <div style={{marginTop:10, padding:8, border:'1px dashed #aaa'}}>
-            <div>Assign <strong>{selectedTeam.name}</strong> to incident <strong>{incidentId}</strong>?</div>
-            <div style={{marginTop:8, display:'flex', gap:8}}>
-              <button onClick={doAssign} disabled={assigning}>Confirm</button>
-              <button onClick={()=>{setConfirm(false); setSelectedTeam(null)}}>Cancel</button>
-            </div>
+            ))}
           </div>
-        )}
+
+          {confirm && selectedTeam && (
+            <div className="card" style={{ boxShadow: 'none' }}>
+              <div className="card-body" style={{ padding: 12, display: 'grid', gap: 10 }}>
+                <div>
+                  Assign <span style={{ fontWeight: 800, color: 'var(--text)' }}>{selectedTeam.name}</span> to incident{' '}
+                  <span style={{ fontWeight: 800, color: 'var(--text)' }}>{incidentId || '—'}</span>?
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button className="btn btn-primary" onClick={doAssign} disabled={assigning || !incidentId}>
+                    {assigning ? 'Assigning…' : 'Confirm'}
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => { setConfirm(false); setSelectedTeam(null); setError(null) }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
