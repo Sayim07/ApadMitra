@@ -4,6 +4,10 @@ import DisasterMap from '../components/DisasterMap'
 import { useAuth } from '../components/AuthProvider'
 import AuthorityPanel from '../components/AuthorityPanel'
 import AppShell from '../components/AppShell'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
+import StatCard from '../components/ui/StatCard'
 
 export default function Dashboard() {
   const [incidents, setIncidents] = useState([])
@@ -15,104 +19,161 @@ export default function Dashboard() {
 
   const [showPanel, setShowPanel] = useState(false)
 
-  const severityBadge = (severity) => {
-    if (severity === 'RED') return 'badge badge-red'
-    if (severity === 'YELLOW') return 'badge badge-yellow'
-    return 'badge badge-green'
-  }
-
   const countBy = (sev) => incidents.filter(i => (i.severity || '').toUpperCase() === sev).length
+  const hasCriticalUnacked = incidents.some(i => (i.severity || '').toUpperCase() === 'RED' && !i.acknowledged)
+
+  const badgeVariant = (severity) => {
+    const s = (severity || '').toUpperCase()
+    if (s === 'RED') return 'red'
+    if (s === 'YELLOW') return 'yellow'
+    return 'green'
+  }
 
   return (
     <AppShell
-      title="Active Incidents"
-      description="Live incident overview with map, severity breakdown, and quick access to incident details."
+      title="Dashboard"
+      description="Emergency intelligence — incidents, severity, and live map in one view."
       actions={
         profile && (profile.role === 'DISTRICT_AUTHORITY' || profile.role === 'ADMIN') ? (
-          <button className="btn btn-primary" onClick={() => setShowPanel(true)}>
-            Authority Panel
-          </button>
+          <Button variant="primary" size="md" onClick={() => setShowPanel(true)}>
+            Open Authority Panel
+          </Button>
         ) : null
       }
     >
-      <div className="grid">
-        <div className="col-4">
-          <div className="kpi">
-            <div className="kpi-value">{incidents.length}</div>
-            <div className="kpi-label">Active incidents</div>
+      {hasCriticalUnacked ? (
+        <div className="dash-alert">
+          <div className="dash-alert-inner">
+            <div className="dash-alert-text">⚠ CRITICAL ALERT — Unacknowledged RED incidents detected</div>
+            <Button as={Link} to="/dashboard" variant="outline" size="sm">View & Acknowledge →</Button>
           </div>
         </div>
-        <div className="col-4">
-          <div className="kpi">
-            <div className="kpi-value" style={{ color: 'var(--danger)' }}>{countBy('RED')}</div>
-            <div className="kpi-label">High severity (RED)</div>
-          </div>
-        </div>
-        <div className="col-4">
-          <div className="kpi">
-            <div className="kpi-value" style={{ color: 'var(--warning)' }}>{countBy('YELLOW')}</div>
-            <div className="kpi-label">Medium severity (YELLOW)</div>
-          </div>
-        </div>
+      ) : null}
 
-        <section className="col-8">
-          <div className="card">
-            <div className="card-header">
-              <h3 style={{ fontSize: 16 }}>Incident Map</h3>
-              <span className="badge">
-                <span className="badge-dot" />
-                Updated recently
-              </span>
+      <div className="dash-shell">
+        <aside className="dash-sidebar">
+          <div className="dash-sidebar-section">
+            <div className="dash-sidebar-title">OVERVIEW</div>
+            <a className="dash-nav-item dash-nav-item-active" href="#map">🗺️ Live Map</a>
+            <a className="dash-nav-item" href="#incidents">
+              🚨 Active Incidents <span className="dash-count">{incidents.length}</span>
+            </a>
+            <a className="dash-nav-item" href="#stats">📊 Analytics</a>
+          </div>
+          <div className="dash-sidebar-section">
+            <div className="dash-sidebar-title">MANAGEMENT</div>
+            <a className="dash-nav-item" href="#history">📋 Alert History</a>
+            <a className="dash-nav-item" href="#contacts">👥 Authority Contacts</a>
+            <a className="dash-nav-item" href="#settings">⚙️ Settings</a>
+          </div>
+
+          <Card variant="glass" className="dash-health">
+            <div className="dash-health-title">System Health</div>
+            <div className="dash-health-row"><span>API</span><span>✅ Online</span></div>
+            <div className="dash-health-row"><span>Firebase</span><span>✅ Connected</span></div>
+            <div className="dash-health-row"><span>Agents</span><span>✅ Running</span></div>
+          </Card>
+        </aside>
+
+        <main className="dash-main">
+          <div id="stats" className="ui-grid">
+            <div className="ui-col-3">
+              <StatCard icon="🔴" label="Active RED" value={countBy('RED')} tone="red" />
             </div>
-            <div className="card-body">
+            <div className="ui-col-3">
+              <StatCard icon="🟡" label="Active YELLOW" value={countBy('YELLOW')} tone="orange" />
+            </div>
+            <div className="ui-col-3">
+              <StatCard icon="⚡" label="Total Active" value={incidents.length} tone="blue" />
+            </div>
+            <div className="ui-col-3">
+              <StatCard icon="✅" label="Other" value={Math.max(0, incidents.length - countBy('RED') - countBy('YELLOW'))} tone="green" />
+            </div>
+          </div>
+
+          <div style={{ height: 16 }} />
+
+          <Card variant="elevated" className="dash-card" id="map">
+            <div className="dash-card-head">
+              <div>
+                <div className="dash-card-title">Live Map</div>
+                <div className="dash-card-subtitle">Severity markers and optional heatmap overlay</div>
+              </div>
+              <Badge variant={hasCriticalUnacked ? 'red' : 'green'} pulse={hasCriticalUnacked}>
+                {hasCriticalUnacked ? '⚠ ACTIVE EMERGENCY' : 'MONITORING ACTIVE'}
+              </Badge>
+            </div>
+            <div className="dash-card-body">
               <DisasterMap incidents={incidents} />
             </div>
-          </div>
-        </section>
+          </Card>
 
-        <aside className="col-4">
-          <div className="card">
-            <div className="card-header">
-              <h3 style={{ fontSize: 16 }}>Incident List</h3>
-              <span className="muted-2" style={{ fontSize: 12 }}>{incidents.length} total</span>
+          <div style={{ height: 16 }} />
+
+          <Card variant="elevated" className="dash-card" id="incidents">
+            <div className="dash-card-head">
+              <div>
+                <div className="dash-card-title">Active Incidents</div>
+                <div className="dash-card-subtitle">Select an incident to view details and actions</div>
+              </div>
+              <Badge variant="grey">{incidents.length} total</Badge>
             </div>
-            <div className="card-body" style={{ display: 'grid', gap: 10 }}>
-              {incidents.length === 0 && (
-                <div className="badge" style={{ justifyContent: 'center' }}>
-                  <span className="badge-dot" />
-                  No active incidents
-                </div>
-              )}
-              {incidents.map((inc, idx) => {
-                const incidentId = inc.id || inc._id || inc.document_id || idx
-                return (
-                  <div key={incidentId} className="card" style={{ boxShadow: 'none' }}>
-                    <div className="card-body" style={{ padding: 12, display: 'grid', gap: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
-                        <div style={{ display: 'grid', gap: 2 }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text)' }}>{inc.disaster_type || 'Incident'}</div>
-                          <div className="muted-2" style={{ fontSize: 12 }}>
-                            {inc.location_name || 'Unknown location'}
-                          </div>
+            <div className="dash-card-body">
+              <div className="dash-list">
+                {incidents.length === 0 ? (
+                  <div className="dash-empty">
+                    <div className="dash-empty-icon">🛡️</div>
+                    <div className="dash-empty-title">No active incidents</div>
+                    <div className="dash-empty-sub">Monitoring is running. New incidents will appear here.</div>
+                  </div>
+                ) : incidents.map((inc, idx) => {
+                  const incidentId = inc.id || inc._id || inc.document_id || idx
+                  const sev = (inc.severity || 'GREEN').toUpperCase()
+                  const pulse = sev === 'RED' && !inc.acknowledged
+                  return (
+                    <Link key={incidentId} to={`/incidents/${incidentId}`} className={['dash-item', pulse ? 'dash-item-critical' : undefined].filter(Boolean).join(' ')}>
+                      <div className={['dash-sev', `dash-sev-${sev.toLowerCase()}`].join(' ')} />
+                      <div className="dash-item-main">
+                        <div className="dash-item-top">
+                          <div className="dash-item-title">{inc.disaster_type || 'Incident'} · {inc.location_name || 'Unknown location'}</div>
+                          <Badge variant={badgeVariant(sev)} pulse={pulse}>{sev}</Badge>
                         </div>
-                        <span className={severityBadge((inc.severity || 'GREEN').toUpperCase())}>
-                          <span className="badge-dot" />
-                          {(inc.severity || 'GREEN').toUpperCase()}
-                        </span>
+                        <div className="dash-item-sub">
+                          <span className="dash-mono">{(inc.verification_status || 'unknown').toString()}</span>
+                          {inc.acknowledged ? <span className="dash-muted">Acknowledged</span> : <span className="dash-muted">Unacknowledged</span>}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                        <span className="muted-2" style={{ fontSize: 12 }}>
-                          {(inc.verification_status || 'unknown').toString()}
-                        </span>
-                        <Link className="btn btn-ghost" to={`/incidents/${incidentId}`} style={{ padding: '8px 10px' }}>
-                          View
-                        </Link>
-                      </div>
+                      <div className="dash-item-cta">View →</div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          </Card>
+        </main>
+
+        <aside className="dash-feed">
+          <div className="dash-feed-head">
+            <Badge variant="red" pulse>● Live Feed</Badge>
+            <div className="dash-feed-sub">{incidents.length} updates</div>
+          </div>
+          <div className="dash-feed-body">
+            {incidents.slice(0, 12).map((inc, idx) => {
+              const sev = (inc.severity || 'GREEN').toUpperCase()
+              const incidentId = inc.id || inc._id || inc.document_id || idx
+              return (
+                <Link key={`${incidentId}-feed`} className="dash-feed-item" to={`/incidents/${incidentId}`}>
+                  <div className={['dash-feed-sev', `dash-sev-${sev.toLowerCase()}`].join(' ')} />
+                  <div className="dash-feed-main">
+                    <div className="dash-feed-title">{inc.disaster_type || 'Incident'} · {inc.location_name || 'Unknown'}</div>
+                    <div className="dash-feed-meta">
+                      <span className="dash-mono">{sev}</span>
+                      <span className="dash-muted">{inc.acknowledged ? 'ack' : 'unack'}</span>
                     </div>
                   </div>
-                )
-              })}
-            </div>
+                </Link>
+              )
+            })}
           </div>
         </aside>
       </div>

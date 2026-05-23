@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../components/AuthProvider'
 import AppShell from '../components/AppShell'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
 
 export default function IncidentDetail(){
   const { id } = useParams()
@@ -26,18 +29,16 @@ export default function IncidentDetail(){
   if(!incident) {
     return (
       <AppShell title="Incident" description="Loading incident details…">
-        <div className="card">
-          <div className="card-body">Loading…</div>
-        </div>
+        <Card variant="elevated" className="ui-card-pad">Loading…</Card>
       </AppShell>
     )
   }
 
-  const severityBadge = (severity) => {
+  const severityVariant = (severity) => {
     const s = (severity || '').toUpperCase()
-    if (s === 'RED') return 'badge badge-red'
-    if (s === 'YELLOW') return 'badge badge-yellow'
-    return 'badge badge-green'
+    if (s === 'RED') return 'red'
+    if (s === 'YELLOW') return 'yellow'
+    return 'green'
   }
 
   const callProtected = async (path, method='POST', body=null) => {
@@ -83,42 +84,43 @@ export default function IncidentDetail(){
       description={incident.raw_text || 'No description available.'}
       actions={
         <>
-          <Link className="btn btn-ghost" to="/dashboard">Back</Link>
-          <span className={severityBadge(incident.severity)}>
-            <span className="badge-dot" />
+          <Button as={Link} to="/dashboard" variant="ghost" size="sm">← Back</Button>
+          <Badge variant={severityVariant(incident.severity)} pulse={(incident.severity || '').toUpperCase() === 'RED' && !incident.acknowledged}>
             {(incident.severity || 'GREEN').toUpperCase()}
-          </span>
+          </Badge>
         </>
       }
     >
       <div className="grid">
         <section className="col-8">
-          <div className="card">
-            <div className="card-header">
-              <h3 style={{ fontSize: 16 }}>Details</h3>
-              <button className="btn btn-ghost" onClick={() => setShowRaw(v => !v)}>
+          <Card variant="elevated">
+            <div className="dash-card-head">
+              <div>
+                <div className="dash-card-title">Incident Details</div>
+                <div className="dash-card-subtitle">Verification, location, and status summary</div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setShowRaw(v => !v)}>
                 {showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
-              </button>
+              </Button>
             </div>
-            <div className="card-body">
+            <div className="dash-card-body">
               <table className="table">
                 <tbody>
                   <tr>
                     <td>Severity</td>
                     <td>
-                      <span className={severityBadge(incident.severity)}>
-                        <span className="badge-dot" />
+                      <Badge variant={severityVariant(incident.severity)} pulse={(incident.severity || '').toUpperCase() === 'RED' && !incident.acknowledged}>
                         {(incident.severity || 'GREEN').toUpperCase()}
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                   <tr>
                     <td>Verification</td>
                     <td>
-                      <span style={{ fontWeight: 700, color: 'var(--text)' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                         {(incident.verification_status || 'unknown').toString()}
                       </span>
-                      <span className="muted-2" style={{ marginLeft: 8, fontSize: 12 }}>
+                      <span style={{ marginLeft: 8, fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                         score {incident.verification_score ?? '—'}
                       </span>
                     </td>
@@ -126,8 +128,8 @@ export default function IncidentDetail(){
                   <tr>
                     <td>Location</td>
                     <td>
-                      <div style={{ fontWeight: 700, color: 'var(--text)' }}>{incident.location_name || '—'}</div>
-                      <div className="muted-2" style={{ fontSize: 12 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{incident.location_name || '—'}</div>
+                      <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                         {incident.latitude || incident.lat ? `Lat ${incident.latitude || incident.lat}` : 'Lat —'} ·{' '}
                         {incident.longitude || incident.lng ? `Lng ${incident.longitude || incident.lng}` : 'Lng —'}
                       </div>
@@ -136,9 +138,11 @@ export default function IncidentDetail(){
                   <tr>
                     <td>Status</td>
                     <td>
-                      <span className="muted">{incident.acknowledged ? 'Acknowledged' : 'Not acknowledged'}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                        {incident.acknowledged ? 'Acknowledged' : 'Not acknowledged'}
+                      </span>
                       {incident.assigned_to?.team_id && (
-                        <span className="muted-2" style={{ marginLeft: 8, fontSize: 12 }}>
+                        <span style={{ marginLeft: 8, fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                           assigned to {incident.assigned_to.team_id}
                         </span>
                       )}
@@ -147,91 +151,85 @@ export default function IncidentDetail(){
                 </tbody>
               </table>
               {showRaw && (
-                <pre style={{ margin: '14px 0 0 0', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'rgba(10,16,30,0.6)', color: 'var(--text)', overflow: 'auto' }}>
+                <pre style={{ margin: '14px 0 0 0', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'rgba(13,17,23,0.85)', color: 'var(--text-primary)', overflow: 'auto', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
                   {JSON.stringify(incident, null, 2)}
                 </pre>
               )}
             </div>
-          </div>
+          </Card>
 
           <div style={{ height: 16 }} />
 
-          <div className="card">
-            <div className="card-header">
-              <h3 style={{ fontSize: 16 }}>Action History</h3>
-              <span className="muted-2" style={{ fontSize: 12 }}>{actions.length} entries</span>
+          <Card variant="elevated">
+            <div className="dash-card-head">
+              <div>
+                <div className="dash-card-title">Action History</div>
+                <div className="dash-card-subtitle">Recent updates and system actions</div>
+              </div>
+              <Badge variant="grey">{actions.length} entries</Badge>
             </div>
-            <div className="card-body" style={{ display: 'grid', gap: 10 }}>
+            <div className="dash-card-body" style={{ display: 'grid', gap: 10 }}>
               {actions.length === 0 && (
-                <div className="badge" style={{ justifyContent: 'center' }}>
-                  <span className="badge-dot" />
-                  No actions recorded
-                </div>
+                <Badge variant="grey">No actions recorded</Badge>
               )}
               {actions.map((a, i) => (
-                <div key={i} className="card" style={{ boxShadow: 'none' }}>
-                  <div className="card-body" style={{ padding: 12, display: 'grid', gap: 8 }}>
+                <Card key={i} variant="bordered" className="ui-card-pad">
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
                       <div style={{ display: 'grid', gap: 2 }}>
-                        <div style={{ fontWeight: 800, color: 'var(--text)' }}>{a.action || 'action'}</div>
-                        <div className="muted-2" style={{ fontSize: 12 }}>
+                        <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{a.action || 'action'}</div>
+                        <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                           by {a.by || 'system'} · {a.ts ? new Date(a.ts).toLocaleString() : 'unknown time'}
                         </div>
                       </div>
                       {a.provider && (
-                        <span className="badge">
-                          <span className="badge-dot" />
-                          {a.provider}
-                        </span>
+                        <Badge variant="blue">{a.provider}</Badge>
                       )}
                     </div>
                     {a.details && (
-                      <pre style={{ margin: 0, padding: 10, borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(10,16,30,0.6)', color: 'var(--text)', overflow: 'auto' }}>
+                      <pre style={{ margin: 0, padding: 10, borderRadius: 12, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(13,17,23,0.85)', color: 'var(--text-primary)', overflow: 'auto', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
                         {JSON.stringify(a.details, null, 2)}
                       </pre>
                     )}
-                  </div>
-                </div>
+                </Card>
               ))}
             </div>
-          </div>
+          </Card>
         </section>
 
         <aside className="col-4">
           {profile && (profile.role === 'DISTRICT_AUTHORITY' || profile.role === 'ADMIN') && (
-            <div className="card">
-              <div className="card-header">
-                <h3 style={{ fontSize: 16 }}>Authority Actions</h3>
-                <span className="badge">
-                  <span className="badge-dot" />
-                  Protected
-                </span>
+            <Card variant="elevated">
+              <div className="dash-card-head">
+                <div>
+                  <div className="dash-card-title">Authority Actions</div>
+                  <div className="dash-card-subtitle">Acknowledge, assign and dispatch</div>
+                </div>
+                <Badge variant="grey">Protected</Badge>
               </div>
-              <div className="card-body" style={{ display: 'grid', gap: 10 }}>
-                <button className="btn btn-primary" onClick={acknowledge} disabled={loadingAction || incident.acknowledged}>
+              <div className="dash-card-body" style={{ display: 'grid', gap: 10 }}>
+                <Button variant="primary" size="md" onClick={acknowledge} disabled={loadingAction || incident.acknowledged} loading={loadingAction && !incident.acknowledged}>
                   {incident.acknowledged ? 'Acknowledged' : 'Acknowledge'}
-                </button>
-                <button className="btn" onClick={assign} disabled={loadingAction}>
+                </Button>
+                <Button variant="secondary" size="md" onClick={assign} disabled={loadingAction}>
                   Assign team
-                </button>
-                <button className="btn btn-danger" onClick={dispatchNow} disabled={loadingAction}>
+                </Button>
+                <Button variant="danger" size="md" onClick={dispatchNow} disabled={loadingAction}>
                   Dispatch now
-                </button>
-                <p className="muted-2" style={{ fontSize: 12 }}>
-                  Actions require a valid auth token. Updates may take a moment to reflect.
-                </p>
+                </Button>
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                  Actions require a valid auth token.
+                </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {!profile && (
-            <div className="card">
-              <div className="card-body">
-                <p>Sign in to view protected actions for this incident.</p>
-                <div style={{ height: 12 }} />
-                <Link className="btn btn-primary" to="/login">Sign in</Link>
+            <Card variant="elevated" className="ui-card-pad">
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ color: 'var(--text-secondary)' }}>Sign in to access protected authority actions.</div>
+                <Button as={Link} to="/login" variant="primary" size="md">Sign in</Button>
               </div>
-            </div>
+            </Card>
           )}
         </aside>
       </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.heat'
+import Badge from './ui/Badge'
 
 function HeatmapLayer({ incidents = [] }) {
   const map = useMap()
@@ -37,7 +38,7 @@ export default function DisasterMap({ incidents = [] }){
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-        <label className="badge" style={{ cursor: 'pointer' }}>
+        <label className="ui-badge ui-badge-grey" style={{ cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={showHeatmap}
@@ -47,10 +48,10 @@ export default function DisasterMap({ incidents = [] }){
           Show heatmap
         </label>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="badge badge-red"><span className="badge-dot" />RED</span>
-          <span className="badge badge-yellow"><span className="badge-dot" />YELLOW</span>
-          <span className="badge badge-green"><span className="badge-dot" />GREEN</span>
-          <span className="muted-2" style={{ fontSize: 12 }}>{incidents.length} incidents</span>
+          <Badge variant="red" size="sm">RED</Badge>
+          <Badge variant="yellow" size="sm">YELLOW</Badge>
+          <Badge variant="green" size="sm">GREEN</Badge>
+          <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{incidents.length} incidents</span>
         </div>
       </div>
       <div style={{ height: 420, width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.14)' }}>
