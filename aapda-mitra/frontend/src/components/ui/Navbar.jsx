@@ -54,9 +54,14 @@ export default function Navbar({ profile, onLogout }) {
               <Button variant="ghost" size="sm" onClick={onLogout}>Sign out</Button>
             </div>
           ) : (
-            <Button as={Link} to="/login" variant="outline" size="sm">
-              Authority Login →
-            </Button>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <Button as={Link} to="/login" variant="primary" size="sm">
+                Get Started Free
+              </Button>
+              <Button as={Link} to="/login" variant="outline" size="sm">
+                Authority Login →
+              </Button>
+            </div>
           )}
 
           <button className="ui-burger" type="button" aria-label="Open menu" onClick={() => setOpen(v => !v)}>
@@ -79,9 +84,14 @@ export default function Navbar({ profile, onLogout }) {
                 Sign out
               </Button>
             ) : (
-              <Button as={Link} to="/login" variant="primary" size="md" onClick={() => setOpen(false)}>
-                Sign in
-              </Button>
+              <>
+                <Button as={Link} to="/login" variant="primary" size="md" onClick={() => setOpen(false)}>
+                  Get Started Free
+                </Button>
+                <Button as={Link} to="/login" variant="outline" size="md" onClick={() => setOpen(false)}>
+                  Authority Login →
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -89,4 +99,3 @@ export default function Navbar({ profile, onLogout }) {
     </header>
   )
 }
-
