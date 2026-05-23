@@ -78,8 +78,27 @@ class DispatchAgent:
         # prepare messages
         msg = f"{incident.get('disaster_type')} at {incident.get('location_name')}. Severity: {severity}. Follow instructions."
 
+        def _infer_authority_types() -> List[str]:
+            configured = incident.get("target_authority_types") or []
+            configured = [str(x).upper() for x in configured if x]
+            if configured:
+                return sorted(list(set(configured)))
+            dt = str(incident.get("disaster_type") or "GENERAL").upper()
+            mapping = {
+                "FLOOD": ["FLOOD"],
+                "FIRE": ["FIRE"],
+                "EARTHQUAKE": ["EARTHQUAKE"],
+                "CYCLONE": ["CYCLONE"],
+                "LANDSLIDE": ["LANDSLIDE"],
+                "ROAD_DAMAGE": ["ROAD_DAMAGE"],
+                "TREE_FALL": ["TREE_FALL"],
+                "ELECTRICITY": ["ELECTRICITY"],
+                "MEDICAL": ["MEDICAL"],
+            }
+            return mapping.get(dt, ["GENERAL"])
+
         # get authority contacts to notify
-        contacts = await firebase_service.get_authority_contacts(incident.get('district'))
+        contacts = await firebase_service.get_authority_contacts(incident.get("district"), authority_types=_infer_authority_types())
         phone_numbers = [c.get('phone') for c in contacts if c.get('phone')]
         emails = [c.get('email') for c in contacts if c.get('email')]
 

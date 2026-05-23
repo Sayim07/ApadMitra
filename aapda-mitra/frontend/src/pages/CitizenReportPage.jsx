@@ -5,11 +5,43 @@ import Card from '../components/ui/Card'
 
 export default function CitizenReportPage(){
   const [text,setText]=useState('')
+  const [locationName, setLocationName] = useState('')
+  const [authorityType, setAuthorityType] = useState('FLOOD')
+  const [submitting, setSubmitting] = useState(false)
+
+  const AUTHORITY_TYPES = [
+    { value: 'FLOOD', label: 'Flood' },
+    { value: 'FIRE', label: 'Fire' },
+    { value: 'EARTHQUAKE', label: 'Earthquake' },
+    { value: 'CYCLONE', label: 'Cyclone' },
+    { value: 'LANDSLIDE', label: 'Landslide' },
+    { value: 'ROAD_DAMAGE', label: 'Road Damage' },
+    { value: 'TREE_FALL', label: 'Fallen Tree' },
+    { value: 'ELECTRICITY', label: 'Electricity' },
+    { value: 'MEDICAL', label: 'Medical' },
+    { value: 'GENERAL', label: 'Other' }
+  ]
+
   const submit=async(e)=>{
     e.preventDefault()
-    const body={disaster_type:'FLOOD', source_type:'CITIZEN_REPORT', raw_text:text}
-    await fetch('/incidents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    alert('Submitted')
+    if (!text.trim()) return
+    setSubmitting(true)
+    try {
+      const selected = (authorityType || 'GENERAL').toUpperCase()
+      const body = {
+        disaster_type: selected,
+        source_type: 'CITIZEN_REPORT',
+        raw_text: text,
+        location_name: locationName || undefined,
+        target_authority_types: selected ? [selected] : []
+      }
+      await fetch('/incidents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      alert('Submitted')
+      setText('')
+      setLocationName('')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const counter = useMemo(() => text.length, [text])
@@ -41,6 +73,32 @@ export default function CitizenReportPage(){
 
         <Card variant="glass" className="report-card">
           <form onSubmit={submit} className="report-form">
+            <label className="auth-label">Select help category</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {AUTHORITY_TYPES.map(t => {
+                const active = authorityType === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    className={['ui-pill', active ? 'ui-pill-active' : undefined].filter(Boolean).join(' ')}
+                    onClick={() => setAuthorityType(t.value)}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <label className="auth-label" htmlFor="location">Location (optional)</label>
+            <input
+              id="location"
+              className="ui-input"
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              placeholder="e.g. Sector 12, Noida"
+            />
+
             <label className="auth-label" htmlFor="details">Describe the situation</label>
             <div className="report-textarea-wrap">
               <textarea
@@ -55,7 +113,7 @@ export default function CitizenReportPage(){
             </div>
 
             <div className="report-actions">
-              <Button type="submit" variant="primary" size="lg">
+              <Button type="submit" variant="primary" size="lg" loading={submitting} disabled={!text.trim()}>
                 Submit Emergency Report
               </Button>
               <div className="report-hint">For immediate danger, use SOS to send your location.</div>

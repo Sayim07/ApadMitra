@@ -33,5 +33,17 @@ export default defineConfig({
       devOptions: { enabled: process.env.SW_DEV === 'true' }
     })
   ],
-  server: { port: 3000 }
+  server: {
+    port: 3000,
+    proxy: {
+      '/auth': 'http://localhost:8000',
+      '/incidents': 'http://localhost:8000',
+      '/users': 'http://localhost:8000',
+      '/teams': 'http://localhost:8000',
+      '/authority': 'http://localhost:8000',
+      '/alerts': 'http://localhost:8000',
+      '/voice': 'http://localhost:8000',
+      '/metrics': 'http://localhost:8000',
+    }
+  }
 })

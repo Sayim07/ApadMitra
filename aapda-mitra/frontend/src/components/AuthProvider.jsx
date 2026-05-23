@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut as fbSignOut } from 'firebase/auth'
-import { auth } from '../firebase'
+import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut as fbSignOut } from 'firebase/auth'
+import { auth, isFirebaseConfigured } from '../firebase'
 
 // helper to exchange idToken for backend profile
 async function fetchBackendProfile(idToken) {
@@ -10,11 +10,11 @@ async function fetchBackendProfile(idToken) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_token: idToken })
     })
-    if (!res.ok) return null
+    if (!res.ok) return { profile: null, error: `http_${res.status}` }
     const data = await res.json()
-    return data.user
+    return { profile: data.user || null, error: null }
   } catch (e) {
-    return null
+    return { profile: null, error: 'network' }
   }
 }
 
@@ -27,11 +27,14 @@ export function useAuth() {
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  const [profileError, setProfileError] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!auth) {
       setLoading(false)
+      setProfileLoaded(true)
       return undefined
     }
 
@@ -39,12 +42,23 @@ export default function AuthProvider({ children }) {
       setUser(u)
       setLoading(false)
       if (u) {
+        setProfile(null)
+        setProfileLoaded(false)
+        setProfileError(null)
         u.getIdToken().then(async (t) => {
-          const profile = await fetchBackendProfile(t)
-          setProfile(profile)
-        }).catch(()=>{})
+          const r = await fetchBackendProfile(t)
+          setProfile(r.profile)
+          setProfileError(r.error)
+          setProfileLoaded(true)
+        }).catch(()=> {
+          setProfile(null)
+          setProfileError('token')
+          setProfileLoaded(true)
+        })
       } else {
         setProfile(null)
+        setProfileLoaded(true)
+        setProfileError(null)
       }
     })
     return () => unsub()
@@ -57,22 +71,57 @@ export default function AuthProvider({ children }) {
 
     const cred = await signInWithEmailAndPassword(auth, email, password)
     const token = await cred.user.getIdToken()
-    const profile = await fetchBackendProfile(token)
-    setProfile(profile)
-    return cred
+    const r = await fetchBackendProfile(token)
+    setProfile(r.profile)
+    setProfileError(r.error)
+    setProfileLoaded(true)
+    return { cred, profile: r.profile }
+  }
+
+  const register = async (email, password) => {
+    if (!auth) {
+      throw new Error('Firebase auth is not configured for this local preview')
+    }
+
+    const cred = await createUserWithEmailAndPassword(auth, email, password)
+    const token = await cred.user.getIdToken()
+    const r = await fetchBackendProfile(token)
+    setProfile(r.profile)
+    setProfileError(r.error)
+    setProfileLoaded(true)
+    return { cred, profile: r.profile }
+  }
+
+  const loginWithGoogle = async () => {
+    if (!auth) {
+      throw new Error('Firebase auth is not configured for this local preview')
+    }
+
+    const provider = new GoogleAuthProvider()
+    const cred = await signInWithPopup(auth, provider)
+    const token = await cred.user.getIdToken()
+    const r = await fetchBackendProfile(token)
+    setProfile(r.profile)
+    setProfileError(r.error)
+    setProfileLoaded(true)
+    return { cred, profile: r.profile }
   }
   const logout = async () => {
     if (!auth) {
       setProfile(null)
+      setProfileLoaded(true)
+      setProfileError(null)
       return
     }
 
     await fbSignOut(auth)
     setProfile(null)
+    setProfileLoaded(true)
+    setProfileError(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, profile, profileLoaded, profileError, login, register, loginWithGoogle, logout, loading, isFirebaseConfigured }}>
       {children}
     </AuthContext.Provider>
   )

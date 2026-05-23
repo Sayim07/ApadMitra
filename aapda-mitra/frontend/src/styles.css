@@ -406,6 +406,22 @@ a:hover { color: var(--accent-red); }
   100% { transform: scale(1.18); opacity: 0; }
 }
 
+.ui-pill {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.02);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease, transform 200ms ease;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.ui-pill:hover { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); }
+.ui-pill:active { transform: scale(0.98); }
+.ui-pill-active { border-color: rgba(230,57,70,0.45); background: rgba(230,57,70,0.12); color: rgba(255,255,255,0.92); box-shadow: 0 0 0 6px rgba(230,57,70,0.10); }
+
 .ui-field { display: grid; gap: 6px; }
 .ui-input-wrap { position: relative; }
 .ui-input {

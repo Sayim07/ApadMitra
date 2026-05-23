@@ -12,8 +12,11 @@ from api.routes import alerts as alerts_router
 from api.routes import dashboard as dashboard_router
 from api.routes import voice as voice_router
 from api.routes import metrics as metrics_router
+from api.routes import authority as authority_router
+from api.routes import teams as teams_router
 from agents.monitoring_agent import MonitoringAgent
 from agents.pipeline import pipeline
+from agents.super_admin_agent import super_admin_agent
 from services.notification_queue import notification_queue
 
 logger = logging.getLogger("main")
@@ -53,6 +56,12 @@ async def startup_event():
         await pipeline.start()
     except Exception:
         logger.exception("Failed to start pipeline orchestrator")
+    # start super admin (AI) background worker
+    try:
+        asyncio.create_task(super_admin_agent.run())
+        logger.info("SuperAdminAgent started")
+    except Exception:
+        logger.exception("Failed to start SuperAdminAgent")
     # start notification queue processor
     try:
         await notification_queue.start()
@@ -67,6 +76,8 @@ app.include_router(alerts_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(voice_router.router)
 app.include_router(metrics_router.router)
+app.include_router(authority_router.router)
+app.include_router(teams_router.router)
 
 
 @app.get("/health")

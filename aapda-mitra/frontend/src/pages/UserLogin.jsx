@@ -6,13 +6,14 @@ import Card from '../components/ui/Card'
 import Input from '../components/ui/Input'
 import Badge from '../components/ui/Badge'
 
-export default function Login() {
+export default function UserLogin() {
+  const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const { login, loginWithGoogle, profile, isFirebaseConfigured } = useAuth()
+  const { login, register, loginWithGoogle, isFirebaseConfigured } = useAuth()
   const navigate = useNavigate()
 
   const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim())
@@ -26,19 +27,24 @@ export default function Login() {
         return
       }
       setLoading(true)
-      const r = await login(email, password)
-      const role = r?.profile?.role
-      if (!role) {
-        navigate('/authority-apply', { replace: true })
-        return
+      if (mode === 'signup') {
+        const r = await register(email, password)
+        const role = r?.profile?.role
+        if (role && role !== 'CITIZEN') {
+          navigate('/dashboard', { replace: true })
+          return
+        }
+      } else {
+        const r = await login(email, password)
+        const role = r?.profile?.role
+        if (role && role !== 'CITIZEN') {
+          navigate('/dashboard', { replace: true })
+          return
+        }
       }
-      if (role === 'CITIZEN') {
-        navigate('/me', { replace: true })
-        return
-      }
-      navigate('/dashboard', { replace: true })
+      navigate('/me', { replace: true })
     } catch (err) {
-      const msg = err?.code ? String(err.code).replace('auth/', '') : (err?.message || 'Failed to sign in')
+      const msg = err?.code ? String(err.code).replace('auth/', '') : (err?.message || 'Failed to authenticate')
       setError(msg)
     } finally {
       setLoading(false)
@@ -50,16 +56,12 @@ export default function Login() {
       setError(null)
       setLoading(true)
       const r = await loginWithGoogle()
-      const role = r?.profile?.role || profile?.role
-      if (!role || role === 'CITIZEN') {
-        if (!role) {
-          navigate('/authority-apply', { replace: true })
-          return
-        }
-        navigate('/me', { replace: true })
+      const role = r?.profile?.role
+      if (role && role !== 'CITIZEN') {
+        navigate('/dashboard', { replace: true })
         return
       }
-      navigate('/dashboard', { replace: true })
+      navigate('/me', { replace: true })
     } catch (err) {
       const msg = err?.code ? String(err.code).replace('auth/', '') : (err?.message || 'Google sign-in failed')
       setError(msg)
@@ -78,21 +80,13 @@ export default function Login() {
           </div>
 
           <div className="auth-quote">
-            “In disaster response, every second counts.
-            <br />
-            AapdaMitra makes seconds matter.”
+            “Report fast. Get help faster.”
           </div>
 
           <div className="auth-trust">
             <Badge variant="red" pulse>🔴 Live Monitoring Active</Badge>
-            <Badge variant="blue">🛡️ AI-Verified Reports</Badge>
-            <Badge variant="grey">📡 5-Channel Alerts</Badge>
-          </div>
-
-          <div className="auth-stats">
-            <div className="auth-stat">127 incidents verified this month</div>
-            <div className="auth-stat">&lt; 30 second average response time</div>
-            <div className="auth-stat">3 languages, 5 alert channels</div>
+            <Badge variant="grey">🧭 Location-based response</Badge>
+            <Badge variant="blue">📡 Multi-channel alerts</Badge>
           </div>
         </div>
       </div>
@@ -102,8 +96,8 @@ export default function Login() {
           <Card variant="elevated" className="auth-card">
             <div style={{ display: 'grid', gap: 10 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Authority sign in</h2>
-                <p style={{ marginTop: 8 }}>Sign in to access the emergency dashboard</p>
+                <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>{mode === 'signup' ? 'Create account' : 'User sign in'}</h2>
+                <p style={{ marginTop: 8 }}>{mode === 'signup' ? 'Create a citizen account to track reports.' : 'Sign in to receive updates and alerts.'}</p>
               </div>
 
               {!isFirebaseConfigured ? (
@@ -114,7 +108,6 @@ export default function Login() {
                   </div>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
                     <Link to="/login" className="auth-link">← Back</Link>
-                    <Link to="/authority-apply" className="auth-link">Authority registration →</Link>
                   </div>
                 </>
               ) : (
@@ -128,7 +121,7 @@ export default function Login() {
                   </Button>
 
                   <div className="auth-divider">
-                    <span>— or sign in with email —</span>
+                    <span>— or {mode === 'signup' ? 'sign up' : 'sign in'} with email —</span>
                   </div>
 
                   <form onSubmit={handleSubmit} className={['auth-form', error ? 'auth-form-error' : undefined].filter(Boolean).join(' ')}>
@@ -142,17 +135,14 @@ export default function Login() {
                       leftIcon="✉"
                     />
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                      <label className="auth-label" htmlFor="password">Password</label>
-                      <Link to="/" className="auth-link">Forgot password?</Link>
-                    </div>
+                    <label className="auth-label" htmlFor="password">Password</label>
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      autoComplete="current-password"
+                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                       leftIcon="🔒"
                       rightIcon={
                         <button
@@ -167,7 +157,7 @@ export default function Login() {
                     />
 
                     <Button type="submit" variant="primary" size="lg" loading={loading} disabled={!email || !password}>
-                      Sign in
+                      {mode === 'signup' ? 'Create account' : 'Sign in'}
                     </Button>
 
                     {error ? (
@@ -178,8 +168,9 @@ export default function Login() {
 
                     <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
                       <Link to="/login" className="auth-link">← Back</Link>
-                      <Link to="/authority-apply" className="auth-link">Authority registration →</Link>
-                      <Link to="/report" className="auth-link">Report without login →</Link>
+                      <button type="button" className="auth-link" onClick={() => setMode(m => (m === 'signup' ? 'signin' : 'signup'))}>
+                        {mode === 'signup' ? 'Already have an account?' : 'Create account'}
+                      </button>
                     </div>
                   </form>
                 </>

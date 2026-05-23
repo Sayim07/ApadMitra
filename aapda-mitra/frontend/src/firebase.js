@@ -16,5 +16,6 @@ const isConfigured = Object.values(firebaseConfig).every((value) => typeof value
 const app = isConfigured ? initializeApp(firebaseConfig) : null
 export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
+export const isFirebaseConfigured = isConfigured
 
 export default app

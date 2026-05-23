@@ -9,18 +9,22 @@ import Card from '../components/ui/Card'
 import StatCard from '../components/ui/StatCard'
 
 export default function LandingPage(){
-  const { profile, logout } = useAuth()
+  const { user, profile, profileLoaded, logout, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const handleLogout = async () => {
     await logout()
-    if (location.pathname.startsWith('/dashboard')) navigate('/')
+    if (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/me')) navigate('/')
   }
+
+  const dashboardHref = profile?.role && profile.role !== 'CITIZEN' ? '/dashboard' : (profile ? '/me' : '/login')
+  const reportHref = user ? '/report' : '/login/user'
+  const dashboardButtonLabel = profile?.role && profile.role !== 'CITIZEN' ? 'Dashboard' : (profile ? 'My Dashboard' : 'Authority Login →')
 
   return (
     <div>
-      <Navbar profile={profile} onLogout={handleLogout} />
+      <Navbar user={user} profile={profile} profileLoaded={profileLoaded} loading={loading} onLogout={handleLogout} />
 
       <section className="ui-hero">
         <div className="ui-hero-inner">
@@ -56,8 +60,8 @@ export default function LandingPage(){
           <div style={{ height: 22 }} />
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <Button as={Link} to="/report" variant="primary" size="lg">🚨 Report Emergency</Button>
-            <Button as={Link} to="/login" variant="outline" size="lg">Authority Login →</Button>
+            <Button as={Link} to={reportHref} variant="primary" size="lg">🚨 Report Emergency</Button>
+            <Button as={Link} to={dashboardHref} variant="outline" size="lg">{dashboardButtonLabel}</Button>
           </div>
         </div>
 
@@ -137,7 +141,7 @@ export default function LandingPage(){
               <h2 style={{ fontSize: 30, margin: 0 }}>Every second you wait is a life at risk.</h2>
               <p style={{ marginTop: 10 }}>Use AapdaMitra to share, verify and coordinate response.</p>
               <div style={{ height: 16 }} />
-              <Button as={Link} to="/login" variant="primary" size="lg">Get Started Free</Button>
+              <Button as={Link} to="/login/user" variant="primary" size="lg">Get Started Free</Button>
             </div>
           </Card>
         </section>
@@ -154,9 +158,8 @@ export default function LandingPage(){
             <div className="ui-col-4">
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>Product</div>
               <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                <Link to="/dashboard">Dashboard</Link>
-                <Link to="/report">Report</Link>
-                <Link to="/sos">SOS</Link>
+                  <Link to={dashboardHref}>Dashboard</Link>
+                  <Link to={reportHref}>Report</Link>
               </div>
             </div>
             <div className="ui-col-4">

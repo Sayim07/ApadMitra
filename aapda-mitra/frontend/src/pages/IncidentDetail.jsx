@@ -12,6 +12,9 @@ export default function IncidentDetail(){
   const [actions, setActions] = useState([])
   const [loadingAction, setLoadingAction] = useState(false)
   const [showRaw, setShowRaw] = useState(false)
+  const [showFollowup, setShowFollowup] = useState(false)
+  const [followupText, setFollowupText] = useState('')
+  const [followupType, setFollowupType] = useState('ROAD_DAMAGE')
   const { user, profile } = useAuth()
 
   useEffect(()=>{
@@ -78,13 +81,27 @@ export default function IncidentDetail(){
     if (r && r.ok) { alert('Dispatch triggered'); }
   }
 
+  const submitFollowup = async () => {
+    if (!followupText.trim()) return
+    const r = await callProtected(`/incidents/${id}/followup`, 'POST', {
+      raw_text: followupText,
+      authority_type: followupType
+    })
+    if (r?.incident_id) {
+      alert('Follow-up report submitted')
+      setShowFollowup(false)
+      setFollowupText('')
+      setFollowupType('ROAD_DAMAGE')
+    }
+  }
+
   return (
     <AppShell
       title={`${incident.disaster_type || 'Incident'} — ${incident.location_name || 'Unknown location'}`}
       description={incident.raw_text || 'No description available.'}
       actions={
         <>
-          <Button as={Link} to="/dashboard" variant="ghost" size="sm">← Back</Button>
+          <Button as={Link} to={(profile?.role && profile.role !== 'CITIZEN') ? '/dashboard' : '/me'} variant="ghost" size="sm">← Back</Button>
           <Badge variant={severityVariant(incident.severity)} pulse={(incident.severity || '').toUpperCase() === 'RED' && !incident.acknowledged}>
             {(incident.severity || 'GREEN').toUpperCase()}
           </Badge>
@@ -216,6 +233,9 @@ export default function IncidentDetail(){
                 <Button variant="danger" size="md" onClick={dispatchNow} disabled={loadingAction}>
                   Dispatch now
                 </Button>
+                <Button variant="outline" size="md" onClick={() => setShowFollowup(true)} disabled={loadingAction}>
+                  Create follow-up report
+                </Button>
                 <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                   Actions require a valid auth token.
                 </div>
@@ -233,6 +253,51 @@ export default function IncidentDetail(){
           )}
         </aside>
       </div>
+
+      {showFollowup ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <Card variant="elevated" className="modal">
+            <div className="dash-card-head">
+              <div>
+                <div className="dash-card-title">Follow-up Report</div>
+                <div className="dash-card-subtitle">Escalate new issues found during response. Routed by AI Super Admin.</div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowFollowup(false)}>Close</Button>
+            </div>
+            <div className="dash-card-body" style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label className="auth-label" htmlFor="followupType">Issue type</label>
+                <select id="followupType" className="ui-input" value={followupType} onChange={(e) => setFollowupType(e.target.value)}>
+                  <option value="ROAD_DAMAGE">Road Damage</option>
+                  <option value="TREE_FALL">Fallen Tree</option>
+                  <option value="ELECTRICITY">Electricity</option>
+                  <option value="MEDICAL">Medical</option>
+                  <option value="FIRE">Fire</option>
+                  <option value="FLOOD">Flood</option>
+                  <option value="GENERAL">Other</option>
+                </select>
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label className="auth-label" htmlFor="followupText">Description</label>
+                <textarea
+                  id="followupText"
+                  className="ui-input"
+                  rows={6}
+                  value={followupText}
+                  onChange={(e) => setFollowupText(e.target.value)}
+                  placeholder="Describe what you found and what support is needed..."
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Button variant="primary" size="md" onClick={submitFollowup} disabled={!followupText.trim()} loading={loadingAction}>
+                  Submit follow-up
+                </Button>
+                <Button variant="outline" size="md" onClick={() => setShowFollowup(false)}>Cancel</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </AppShell>
   )
 }

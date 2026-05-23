@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, Request, UploadFi
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+import asyncio
 
 from services.firebase_service import firebase_service
 from services.realtime_activity_logger import realtime_activity_logger
@@ -29,6 +30,15 @@ class AcknowledgeRequest(BaseModel):
     acknowledged_by: Optional[str]
 
 
+class FollowUpCreate(BaseModel):
+    raw_text: str
+    authority_type: Optional[str] = None
+    location_name: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    disaster_type: Optional[str] = None
+
+
 @router.post("", status_code=201)
 async def submit_incident(request: Request):
     """
@@ -47,6 +57,11 @@ async def submit_incident(request: Request):
         location_name = form.get("location_name")
         latitude = form.get("latitude")
         longitude = form.get("longitude")
+        target_authority_types_raw = form.get("target_authority_types")
+        target_authority_types: List[str] = []
+        if target_authority_types_raw:
+            parts = [p.strip() for p in str(target_authority_types_raw).split(",")]
+            target_authority_types = [p.upper() for p in parts if p]
 
         data = {
             "disaster_type": disaster_type,
@@ -65,6 +80,9 @@ async def submit_incident(request: Request):
             "media_urls": [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
+            "report_kind": "PRIMARY",
+            "routing_status": "ROUTED" if target_authority_types else None,
+            "target_authority_types": target_authority_types,
         }
 
         incident_id = await firebase_service.create_incident(data)
@@ -137,6 +155,11 @@ async def submit_incident(request: Request):
         # JSON body
         payload = await request.json()
         data = payload
+        target_authority_types = data.get("target_authority_types") or []
+        if isinstance(target_authority_types, str):
+            target_authority_types = [p.strip().upper() for p in target_authority_types.split(",") if p.strip()]
+        if isinstance(target_authority_types, list):
+            data["target_authority_types"] = [str(x).upper() for x in target_authority_types if x]
         data.update({
             "verification_score": 0,
             "verification_status": VerificationStatus.PENDING.value,
@@ -147,6 +170,7 @@ async def submit_incident(request: Request):
             "acknowledged_by": [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
+            "report_kind": data.get("report_kind") or "PRIMARY",
         })
         incident_id = await firebase_service.create_incident(data)
         try:
@@ -160,6 +184,11 @@ async def submit_incident(request: Request):
 @router.post("/sos", status_code=201)
 async def submit_sos(request: Request):
     body = await request.json()
+    target_authority_types = body.get("target_authority_types") or []
+    if isinstance(target_authority_types, str):
+        target_authority_types = [p.strip().upper() for p in target_authority_types.split(",") if p.strip()]
+    if isinstance(target_authority_types, list):
+        target_authority_types = [str(x).upper() for x in target_authority_types if x]
     data = {
         "disaster_type": body.get("disaster_type", DisasterType.OTHER.value),
         "source_type": body.get("source_type", "CITIZEN_REPORT"),
@@ -176,6 +205,9 @@ async def submit_sos(request: Request):
         "acknowledged_by": [],
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
+        "report_kind": "PRIMARY",
+        "routing_status": "ROUTED" if target_authority_types else None,
+        "target_authority_types": target_authority_types,
     }
     incident_id = await firebase_service.create_incident(data)
     try:
@@ -186,8 +218,16 @@ async def submit_sos(request: Request):
     return {"incident_id": incident_id}
 
 
-@router.get("", dependencies=[Depends(require_role(UserRole.DISTRICT_AUTHORITY, UserRole.ADMIN))])
-async def list_incidents(severity: Optional[str] = None, verification_status: Optional[str] = None, disaster_type: Optional[str] = None, district: Optional[str] = None, skip: int = 0, limit: int = 50):
+@router.get("")
+async def list_incidents(
+    severity: Optional[str] = None,
+    verification_status: Optional[str] = None,
+    disaster_type: Optional[str] = None,
+    district: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    current=Depends(require_role(UserRole.DISTRICT_AUTHORITY, UserRole.ADMIN)),
+):
     filters = {}
     if severity:
         filters["severity"] = severity
@@ -199,13 +239,71 @@ async def list_incidents(severity: Optional[str] = None, verification_status: Op
         filters["district"] = district
 
     incidents = await firebase_service.get_incidents(filters=filters, limit=limit)
-    return {"results": incidents}
+    prefs = (current.get("profile") or {}).get("preferences") or {}
+    authority_types = prefs.get("authority_types") or []
+    authority_types = [str(x).upper() for x in authority_types if x]
+    if not authority_types:
+        return {"results": incidents}
+
+    wanted = set(authority_types)
+    mapping = {
+        "FLOOD": ["FLOOD"],
+        "FIRE": ["FIRE"],
+        "EARTHQUAKE": ["EARTHQUAKE"],
+        "CYCLONE": ["CYCLONE"],
+        "LANDSLIDE": ["LANDSLIDE"],
+        "ROAD_DAMAGE": ["ROAD_DAMAGE"],
+        "TREE_FALL": ["TREE_FALL"],
+        "ELECTRICITY": ["ELECTRICITY"],
+        "MEDICAL": ["MEDICAL"],
+    }
+
+    filtered = []
+    for inc in incidents:
+        targets = inc.get("target_authority_types") or []
+        targets = [str(x).upper() for x in targets if x]
+        if not targets:
+            dt = str(inc.get("disaster_type") or "GENERAL").upper()
+            targets = mapping.get(dt, ["GENERAL"])
+        if set(targets).intersection(wanted):
+            filtered.append(inc)
+
+    return {"results": filtered}
 
 
-@router.get("/active", dependencies=[Depends(require_role(UserRole.WARD_OFFICER, UserRole.RESCUE_TEAM, UserRole.DISTRICT_AUTHORITY, UserRole.ADMIN))])
-async def get_active():
+@router.get("/active")
+async def get_active(current=Depends(require_role(UserRole.WARD_OFFICER, UserRole.RESCUE_TEAM, UserRole.DISTRICT_AUTHORITY, UserRole.ADMIN))):
     incidents = await firebase_service.get_active_incidents()
-    return {"results": incidents}
+    prefs = (current.get("profile") or {}).get("preferences") or {}
+    authority_types = prefs.get("authority_types") or []
+    authority_types = [str(x).upper() for x in authority_types if x]
+    if not authority_types:
+        return {"results": incidents}
+
+    wanted = set(authority_types)
+    mapping = {
+        "FLOOD": ["FLOOD"],
+        "FIRE": ["FIRE"],
+        "EARTHQUAKE": ["EARTHQUAKE"],
+        "CYCLONE": ["CYCLONE"],
+        "LANDSLIDE": ["LANDSLIDE"],
+        "ROAD_DAMAGE": ["ROAD_DAMAGE"],
+        "TREE_FALL": ["TREE_FALL"],
+        "ELECTRICITY": ["ELECTRICITY"],
+        "MEDICAL": ["MEDICAL"],
+    }
+
+    filtered = []
+    for inc in incidents:
+        targets = inc.get("target_authority_types") or []
+        targets = [str(x).upper() for x in targets if x]
+        if not targets:
+            dt = str(inc.get("disaster_type") or "GENERAL").upper()
+            targets = mapping.get(dt, ["GENERAL"])
+        if set(targets).intersection(wanted):
+            filtered.append(inc)
+
+    return {"results": filtered}
 
 
 @router.get("/{incident_id}")
@@ -307,6 +405,53 @@ async def dispatch_incident(incident_id: str):
         return {"ok": True, "result": {"attempted": result.channels_attempted, "succeeded": result.channels_succeeded, "failed": result.channels_failed, "alert_ids": result.alert_ids}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{incident_id}/followup", status_code=201, dependencies=[Depends(require_role(UserRole.WARD_OFFICER, UserRole.RESCUE_TEAM, UserRole.DISTRICT_AUTHORITY, UserRole.ADMIN))])
+async def create_followup(incident_id: str, payload: FollowUpCreate, current=Depends(get_current_user)):
+    parent = await firebase_service.get_incident(incident_id)
+    if not parent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+
+    authority_type = (payload.authority_type or "").strip().upper() or None
+    disaster_type = (payload.disaster_type or authority_type or parent.get("disaster_type") or DisasterType.OTHER.value)
+
+    data = {
+        "disaster_type": disaster_type,
+        "source_type": "AUTHORITY_REPORT",
+        "raw_text": payload.raw_text,
+        "location_name": payload.location_name or parent.get("location_name"),
+        "latitude": payload.latitude if payload.latitude is not None else parent.get("latitude"),
+        "longitude": payload.longitude if payload.longitude is not None else parent.get("longitude"),
+        "verification_score": 0,
+        "verification_status": VerificationStatus.PENDING.value,
+        "severity": SeverityLevel.UNASSIGNED.value,
+        "priority_score": 0,
+        "alerts_sent": [],
+        "channels_dispatched": [],
+        "acknowledged_by": [],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "report_kind": "FOLLOW_UP",
+        "parent_incident_id": incident_id,
+        "reported_by_user_id": current.get("user_id"),
+        "reported_by_role": current.get("role"),
+        "routing_status": "PENDING",
+        "target_authority_types": [authority_type] if authority_type else [],
+    }
+
+    followup_id = await firebase_service.create_incident(data)
+    try:
+        await firebase_service.create_incident_action(incident_id, {"action": "followup_created", "by": current.get("user_id"), "details": {"followup_id": followup_id}, "ts": datetime.utcnow()})
+    except Exception:
+        pass
+
+    try:
+        await firebase_service.create_incident_action(followup_id, {"action": "created", "by": current.get("user_id"), "details": {"parent_incident_id": incident_id}, "ts": datetime.utcnow()})
+    except Exception:
+        pass
+
+    return {"incident_id": followup_id}
 
 
 @router.get("/{incident_id}/actions", dependencies=[Depends(get_current_user)])

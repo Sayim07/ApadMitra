@@ -207,7 +207,7 @@ class FirebaseService:
             logger.exception("create_user_profile error: %s", e)
             raise
 
-    async def get_authority_contacts(self, district: str = None) -> List[Dict]:
+    async def get_authority_contacts(self, district: str = None, authority_types: Optional[List[str]] = None) -> List[Dict]:
         try:
             def _query():
                 col = self.db.collection("users")
@@ -215,11 +215,84 @@ class FirebaseService:
                 if district:
                     q = q.where("preferences.district", "==", district)
                 docs = q.stream()
-                return [d.to_dict() for d in docs]
+                users = [d.to_dict() for d in docs]
+                if authority_types:
+                    wanted = set([str(x).upper() for x in authority_types if x])
+                    filtered = []
+                    for u in users:
+                        prefs = u.get("preferences") or {}
+                        types = prefs.get("authority_types") or []
+                        have = set([str(x).upper() for x in types if x])
+                        if have.intersection(wanted):
+                            filtered.append(u)
+                    return filtered
+                return users
 
             return await asyncio.to_thread(_query)
         except Exception as e:
             logger.exception("get_authority_contacts error: %s", e)
+            raise
+
+    async def create_authority_request(self, data: Dict) -> str:
+        try:
+            def _create():
+                col = self.db.collection("authority_requests")
+                doc_ref = col.add(data)[0]
+                return doc_ref.id
+
+            return await asyncio.to_thread(_create)
+        except Exception as e:
+            logger.exception("create_authority_request error: %s", e)
+            raise
+
+    async def get_pending_authority_requests(self, limit: int = 50) -> List[Dict]:
+        try:
+            def _query():
+                col = self.db.collection("authority_requests")
+                docs = col.where("status", "==", "PENDING").order_by("created_at", direction=firestore.Query.ASCENDING).limit(limit).stream()
+                out: List[Dict] = []
+                for d in docs:
+                    obj = d.to_dict()
+                    obj["request_id"] = d.id
+                    out.append(obj)
+                return out
+
+            return await asyncio.to_thread(_query)
+        except Exception as e:
+            logger.exception("get_pending_authority_requests error: %s", e)
+            raise
+
+    async def update_authority_request(self, request_id: str, updates: Dict) -> None:
+        try:
+            def _update():
+                self.db.collection("authority_requests").document(request_id).set(updates, merge=True)
+
+            await asyncio.to_thread(_update)
+        except Exception as e:
+            logger.exception("update_authority_request error: %s", e)
+            raise
+
+    async def get_pending_followup_incidents(self, limit: int = 50) -> List[Dict]:
+        try:
+            def _query():
+                col = self.db.collection("incidents")
+                docs = (
+                    col.where("report_kind", "==", "FOLLOW_UP")
+                    .where("routing_status", "==", "PENDING")
+                    .order_by("created_at", direction=firestore.Query.ASCENDING)
+                    .limit(limit)
+                    .stream()
+                )
+                out: List[Dict] = []
+                for d in docs:
+                    obj = d.to_dict()
+                    obj["document_id"] = d.id
+                    out.append(obj)
+                return out
+
+            return await asyncio.to_thread(_query)
+        except Exception as e:
+            logger.exception("get_pending_followup_incidents error: %s", e)
             raise
 
     async def get_teams(self, district: str = None) -> List[Dict]:

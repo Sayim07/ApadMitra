@@ -4,18 +4,18 @@ import { useAuth } from './AuthProvider'
 import Navbar from './ui/Navbar'
 
 export default function AppShell({ children, title, description, actions }) {
-  const { profile, logout } = useAuth()
+  const { user, profile, profileLoaded, logout, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const handleLogout = async () => {
     await logout()
-    if (location.pathname.startsWith('/dashboard')) navigate('/')
+    if (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/me')) navigate('/')
   }
 
   return (
     <div>
-      <Navbar profile={profile} onLogout={handleLogout} />
+      <Navbar user={user} profile={profile} profileLoaded={profileLoaded} loading={loading} onLogout={handleLogout} />
 
       <main className="ui-container">
         {(title || description || actions) && (
